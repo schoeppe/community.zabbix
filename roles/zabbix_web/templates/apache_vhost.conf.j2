@@ -103,8 +103,8 @@ SSLCryptoDevice {{ zabbix_apache_SSLCryptoDevice }}
   DocumentRoot "/usr/share/zabbix"
 
   SSLEngine on
-  SSLCipherSuite {{ apache_ssl_cipher_suite }}
-  SSLProtocol {{ apache_ssl_protocol }}
+  SSLCipherSuite {{ zabbix_apache_SSLCipherSuite }}
+  SSLProtocol {{ zabbix_apache_SSLProtocol }}
   SSLHonorCipherOrder On
 {% if apache_vhosts_version == "2.4" %}
   SSLCompression off
