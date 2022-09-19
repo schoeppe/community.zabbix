@@ -15,6 +15,7 @@ try:
     from zabbix_api import ZabbixAPI, Already_Exists, ZabbixAPIException
 
     HAS_ZABBIX_API = True
+    ZBX_IMP_ERR = Exception()
 except ImportError:
     ZBX_IMP_ERR = traceback.format_exc()
     HAS_ZABBIX_API = False
@@ -44,7 +45,7 @@ class ZapiWrapper(object):
 
         self.login()
 
-        self._zbx_api_version = self._zapi.api_version()[:5]
+        self._zbx_api_version = self._zapi.api_version()
 
     def login(self):
         # check if api already logged in

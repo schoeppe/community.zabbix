@@ -9,16 +9,18 @@
 
 - name: "Get Total Private IP Addresses"
   set_fact:
-    total_private_ip_addresses: "{{ ansible_all_ipv4_addresses | ipaddr('private') | length }}"
+    total_private_ip_addresses: "{{ ansible_all_ipv4_addresses | ansible.utils.ipaddr('private') | length }}"
   when:
     - ansible_all_ipv4_addresses is defined
-    - not zabbix_agent_dont_detect_ip
+    - not (zabbix_agent_dont_detect_ip)
 
 - name: "Set first public ip address for zabbix_agent_ip"
   set_fact:
-    zabbix_agent_ip: "{{ ansible_all_ipv4_addresses | ipaddr('public') | first }}"
+    zabbix_agent_ip: "{{ ansible_all_ipv4_addresses | ansible.netcommon.ipaddr('public') | first }}"
     zabbix_agent_server: "{{ zabbix_agent_server_public_ip | default(zabbix_agent_server) }}"
     zabbix_agent_serveractive: "{{ zabbix_agent_serveractive_public_ip | default(zabbix_agent_serveractive) }}"
+    zabbix_agent2_server: "{{ zabbix_agent_server_public_ip | default(zabbix_agent2_server) }}"
+    zabbix_agent2_serveractive: "{{ zabbix_agent_serveractive_public_ip | default(zabbix_agent2_serveractive) }}"
   when:
     - zabbix_agent_ip is not defined
     - total_private_ip_addresses is defined
@@ -26,7 +28,7 @@
 
 - name: "Set first private ip address for zabbix_agent_ip"
   set_fact:
-    zabbix_agent_ip: "{{ ansible_all_ipv4_addresses | ipaddr('private') | first }}"
+    zabbix_agent_ip: "{{ ansible_all_ipv4_addresses | ansible.netcommon.ipaddr('private') | first }}"
   when:
     - zabbix_agent_ip is not defined
     - total_private_ip_addresses is defined
@@ -36,8 +38,8 @@
   fail:
     msg: "The specified network interface does not exist"
   when:
-    - zabbix_agent_listeninterface | bool
-    - (zabbix_agent_listeninterface not in ansible_all_ipv4_addresses)
+    - (zabbix_agent_listeninterface)
+    - (zabbix_agent_listeninterface not in ansible_interfaces)
   tags:
     - zabbix-agent
     - config
@@ -46,15 +48,14 @@
   set_fact:
     network_interface: ansible_{{ zabbix_agent_listeninterface }}
   when:
-    - zabbix_agent_listeninterface | bool
+    - (zabbix_agent_listeninterface)
     - not zabbix_agent_listenip
 
 - name: "Get IP of agent_listeninterface when no agent_listenip specified"
   set_fact:
     zabbix_agent_listenip: "{{ hostvars[inventory_hostname][network_interface]['ipv4'].address | default('0.0.0.0') }}"
-    zabbix_agent_ip: "{{ hostvars[inventory_hostname][network_interface]['ipv4'].address | default('0.0.0.0') }}"
   when:
-    - zabbix_agent_listeninterface | bool
+    - (zabbix_agent_listeninterface)
     - not zabbix_agent_listenip
   tags:
     - zabbix-agent
@@ -65,7 +66,7 @@
   set_fact:
     zabbix_agent_listenip: '0.0.0.0'
   when:
-    - not zabbix_agent_listenip
+    - not (zabbix_agent_listenip)
   tags:
     - zabbix-agent
     - config
@@ -91,7 +92,7 @@
     name: zabbix
     state: present
     gid: "{{ zabbix_agent_docker_user_gid | default(omit) }}"
-  become: yes
+  become: true
   when:
     - zabbix_agent_docker | bool
 
@@ -100,11 +101,11 @@
     name: zabbix
     group: zabbix
     state: present
-    create_home: False
+    create_home: false
     home: /etc/zabbix
     uid: "{{ zabbix_agent_docker_user_uid | default(omit) }}"
-    system: True
-  become: yes
+    system: true
+  become: true
   when:
     - zabbix_agent_docker | bool
 
@@ -117,7 +118,7 @@
     mode: "{{ zabbix_agent_conf_mode }}"
   notify:
     - restart zabbix-agent
-  become: yes
+  become: true
   when:
     - not (zabbix_agent_docker | bool)
   tags:
@@ -130,20 +131,22 @@
     path: "{{ zabbix_agent_tlspskfile | dirname }}"
     mode: 0755
     state: directory
-  become: yes
+  become: true
   when:
     - zabbix_agent_tlspskfile is defined
-    - not zabbix_agent2
+    - zabbix_agent_tlspskfile  # https://github.com/ansible-collections/community.zabbix/issues/680
+    - not (zabbix_agent2 | bool)
 
 - name: "Create directory for PSK file if not exist (zabbix-agent2)"
   file:
     path: "{{ zabbix_agent2_tlspskfile | dirname }}"
     mode: 0755
     state: directory
-  become: yes
+  become: true
   when:
     - zabbix_agent2_tlspskfile is defined
-    - zabbix_agent2
+    - zabbix_agent2_tlspskfile  # https://github.com/ansible-collections/community.zabbix/issues/680
+    - zabbix_agent2 | bool
 
 - name: "Place TLS PSK File"
   copy:
@@ -152,11 +155,12 @@
     owner: zabbix
     group: zabbix
     mode: 0400
-  become: yes
+  become: true
   when:
     - zabbix_agent_tlspskfile is defined
+    - zabbix_agent_tlspskfile  # https://github.com/ansible-collections/community.zabbix/issues/680
     - zabbix_agent_tlspsk_secret is defined
-    - not zabbix_agent2
+    - not (zabbix_agent2 | bool)
   notify:
     - restart zabbix-agent
 
@@ -167,11 +171,12 @@
     owner: zabbix
     group: zabbix
     mode: 0400
-  become: yes
+  become: true
   when:
     - zabbix_agent2_tlspskfile is defined
+    - zabbix_agent2_tlspskfile  # https://github.com/ansible-collections/community.zabbix/issues/680
     - zabbix_agent2_tlspsk_secret is defined
-    - zabbix_agent2
+    - zabbix_agent2 | bool
   notify:
     - restart zabbix-agent
 
@@ -182,7 +187,7 @@
     group: zabbix
     mode: "{{ zabbix_agent_include_mode if not zabbix_agent2 else zabbix_agent2_include_mode }}"
     state: directory
-  become: yes
+  become: true
   tags:
     - config
     - include
@@ -200,17 +205,24 @@
 - name: "Remove zabbix-agent installation when zabbix-agent2 is used."
   include: remove.yml
   when:
-    - zabbix_agent2
+    - zabbix_agent2 | bool
     - zabbix_agent_package_remove
 
 - name: "Make sure the zabbix-agent service is running"
   service:
     name: "{{ zabbix_agent_service }}"
     state: started
-    enabled: yes
-  become: yes
+    enabled: true
+  become: true
   when:
     - not (zabbix_agent_docker | bool)
   tags:
     - init
     - service
+
+- name: "Give zabbix-agent access to system.hw.chassis info"
+  file:
+    path: /sys/firmware/dmi/tables/DMI
+    owner: root
+    group: zabbix
+  when: zabbix_agent_chassis | bool

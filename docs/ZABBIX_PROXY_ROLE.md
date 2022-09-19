@@ -42,28 +42,52 @@ This role will work on the following operating systems:
 So, you'll need one of those operating systems.. :-)
 Please send Pull Requests or suggestions when you want to use this role for other Operating systems.
 
+# Requirements
+## Ansible 2.10 and higher
+
+With the release of Ansible 2.10, modules have been moved into collections.  With the exception of ansible.builtin modules, this means additonal collections must be installed in order to use modules such as seboolean (now ansible.posix.seboolean).  The following collection is now required: `ansible.posix`.  Installing the collection:
+
+```sh
+ansible-galaxy collection install ansible.posix
+```
+
+### MySQL
+
+When you are a MySQL user and using Ansible 2.10 or newer, then there is a dependency on the collection named `community.mysql`. This collections are needed as the `mysql_` modules are now part of collections and not standard in Ansible anymmore. Installing the collection:
+
+```sh
+ansible-galaxy collection install community.mysql
+```
+
+### PostgreSQL
+
+When you are a PostgreSQL user and using Ansible 2.10 or newer, then there is a dependency on the collection named `community.postgresql`. This collections are needed as the `postgresql_` modules are now part of collections and not standard in Ansible anymmore. Installing the collection:
+
+```sh
+ansible-galaxy collection install community.postgresql
+```
+
 ## Zabbix Versions
 
 See the following list of supported Operating systems with the Zabbix releases.
 
-| Zabbix              | 5.2 | 5.0 | 4.4 | 4.0 (LTS) | 3.0 (LTS) |
-|---------------------|-----|-----|-----|-----------|-----------|
-| Red Hat Fam 8       |  V  |  V  | V   |           |           |
-| Red Hat Fam 7       |  V  |  V  | V   | V         | V         |
-| Red Hat Fam 6       |  V  |  V  |     |           | V         |
-| Red Hat Fam 5       |  V  |  V  |     |           | V         |
-| Fedora              |     |     | V   | V         |           |
-| Ubuntu 20.04 focal  |  V  |  V  |     |           |           |
-| Ubuntu 19.10 eoan   |     |     |     |           |           |
-| Ubuntu 18.04 bionic |  V  |  V  | V   | V         |           |
-| Ubuntu 16.04 xenial |  V  |  V  | V   | V         |           |
-| Ubuntu 14.04 trusty |  V  |  V  | V   | V         | V         |
-| Debian 10 buster    |  V  |  V  | V   |           |           |
-| Debian 9 stretch    |  V  |  V  | V   | V         |           |
-| Debian 8 jessie     |  V  |  V  | V   | V         | V         |
-| Debian 7 wheezy     |     |     |     | V         | V         |
-| macOS 10.15         |     |     | V   | V         |           |
-| macOS 10.14         |     |     | V   | V         |           |
+| Zabbix              | 6.2 | 6.0 | 5.4 | 5.2 | 5.0  (LTS)| 4.4 | 4.0 (LTS) | 3.0 (LTS) |
+|---------------------|-----|-----|-----|-----|-----------|-----|-----------|-----------|
+| Red Hat Fam 8       |  V  |  V  |  V  |  V  |  V        | V   |           |           |
+| Red Hat Fam 7       |  V  |  V  |  V  |  V  |  V        | V   | V         | V         |
+| Red Hat Fam 6       |     |     |     |  V  |  V        |     |           | V         |
+| Red Hat Fam 5       |     |     |     |  V  |  V        |     |           | V         |
+| Fedora              |     |     |     |     |           | V   | V         |           |
+| Ubuntu 20.04 focal  |  V  |  V  |  V  |  V  |  V        |     | V         |           |
+| Ubuntu 18.04 bionic |     |  V  |  V  |  V  |  V        | V   | V         |           |
+| Ubuntu 16.04 xenial |     |     |     |  V  |  V        | V   | V         |           |
+| Ubuntu 14.04 trusty |     |     |     |  V  |  V        | V   | V         | V         |
+| Debian 10 buster    |     |  V  |  V  |  V  |  V        | V   |           |           |
+| Debian 9 stretch    |     |  V  |  V  |  V  |  V        | V   | V         |           |
+| Debian 8 jessie     |     |     |     |  V  |  V        | V   | V         | V         |
+| Debian 7 wheezy     |     |     |     |     |           |     | V         | V         |
+| macOS 10.15         |     |     |     |     |           | V   | V         |           |
+| macOS 10.14         |     |     |     |     |           | V   | V         |           |
 
 # Role Variables
 
@@ -73,7 +97,8 @@ The following is an overview of all available configuration default for this rol
 
 ### Overall Zabbix
 
-* `zabbix_proxy_version`: This is the version of zabbix. Default: 5.2. Can be overridden to 5.0, 4.4, 4.0, 3.4, 3.2, 3.0, 2.4, or 2.2. Previously the variable `zabbix_version` was used directly but it could cause [some inconvenience](https://github.com/dj-wasabi/ansible-zabbix-agent/pull/303). That variable is maintained by retrocompativility.
+* `zabbix_proxy_version`: This is the version of zabbix. Default: The highest supported version for the operating system. Can be overridden to 6.2, 6.0, 5.4, 5.2, 5.0, 4.4, 4.0, 3.4, 3.2, 3.0, 2.4, or 2.2. Previously the variable `zabbix_version` was used directly but it could cause [some inconvenience](https://github.com/dj-wasabi/ansible-zabbix-agent/pull/303). That variable is maintained by retrocompativility.
+* `zabbix_proxy_version_minor`: When you want to specify a minor version to be installed. RedHat only. Default set to: `*` (latest available)
 * `zabbix_repo`: Default: `zabbix`
   * `epel`: install agent from EPEL repo
   * `zabbix`: (default) install agent from Zabbix repo
@@ -90,8 +115,8 @@ The following is an overview of all available configuration default for this rol
 ### Zabbix Proxy
 
 * `zabbix_proxy_ip`: The IP address of the host. When not provided, it will be determined via the `ansible_default_ipv4` fact.
-* `zabbix_server_host`: The ip or dns name for the zabbix-server machine.
-* `zabbix_server_port`: The port on which the zabbix-server is running. Default: 10051
+* `zabbix_proxy_server`: The ip or dns name for the zabbix-server machine.
+* `zabbix_proxy_serverport`: The port on which the zabbix-server is running. Default: 10051
 * `*zabbix_proxy_package_state`: Default: `present`. Can be overridden to `latest` to update packages
 * `zabbix_proxy_install_database_client`: Default: `True`. False does not install database client.
 * `zabbix_proxy_become_on_localhost`: Default: `True`. Set to `False` if you don't need to elevate privileges on localhost to install packages locally with pip.
@@ -99,18 +124,24 @@ The following is an overview of all available configuration default for this rol
 * `zabbix_install_pip_packages`: Default: `True`. Set to `False` if you don't want to install the required pip packages. Useful when you control your environment completely.
 * `zabbix_proxy_startpreprocessors`: Number of pre-forked instances of preprocessing workers. The preprocessing manager process is automatically started when a preprocessor worker is started.This parameter is supported since Zabbix 4.2.0.
 * `zabbix_proxy_username`: Default: `zabbix`. The name of the account on the host. Will only be used when `zabbix_repo: epel` is used.
+* `zabbix_proxy_logtype`: Specifies where log messages are written to: system, file, console.
+* `zabbix_proxy_logfile`: Name of log file.
 * `zabbix_proxy_userid`: The UID of the account on the host. Will only be used when `zabbix_repo: epel` is used.
 * `zabbix_proxy_groupname`: Default: `zabbix`. The name of the group of the user on the host. Will only be used when `zabbix_repo: epel` is used.
 * `zabbix_proxy_groupid`: The GID of the group on the host. Will only be used when `zabbix_repo: epel` is used.
 * `zabbix_proxy_include_mode`: Default: `0755`. The "mode" for the directory configured with `zabbix_proxy_include`.
 * `zabbix_proxy_conf_mode`: Default: `0644`. The "mode" for the Zabbix configuration file.
 * `zabbix_proxy_statsallowedip`: Default: `127.0.0.1`. Allowed IP foe remote gathering of the ZabbixPorixy internal metrics.
+* `zabbix_proxy_vaulttoken`: Vault authentication token that should have been generated exclusively for Zabbix server with read only permission
+* `zabbix_proxy_vaulturl`: Vault server HTTP[S] URL. System-wide CA certificates directory will be used if SSLCALocation is not specified.
+* `zabbix_proxy_vaultdbpath`: Vault path from where credentials for database will be retrieved by keys 'password' and 'username'.
+* `zabbix_proxy_listenbacklog`: The maximum number of pending connections in the queue.
 
 ### Database specific
 
 * `zabbix_proxy_dbhost_run_install`: Default: `True`. When set to `True`, sql files will be executed on the host running the database.
-* `zabbix_proxy_database`: Default: `pgsql`. The type of database used. Can be: `mysql`, `pgsql` or `sqlite3`
-* `zabbix_proxy_database_long`: Default: `postgresql`. The type of database used, but long name. Can be: `mysql`, `postgresql` or `sqlite3`
+* `zabbix_proxy_database`: Default: `mysql`. The type of database used. Can be: `mysql`, `pgsql` or `sqlite3`
+* `zabbix_proxy_database_long`: Default: `mysql`. The type of database used, but long name. Can be: `mysql`, `postgresql` or `sqlite3`
 * `zabbix_proxy_dbhost`: The hostname on which the database is running. Will be ignored when `sqlite3` is used as database.
 * `zabbix_proxy_real_dbhost`: The hostname of the dbhost that is running behind a loadbalancer/VIP (loadbalancers doesn't accept ssh connections) Will be ignored when `sqlite3` is used as database.
 * `zabbix_proxy_dbname`: The database name which is used by the Zabbix Proxy.
@@ -122,6 +153,7 @@ The following is an overview of all available configuration default for this rol
 * `zabbix_database_sqlload`:True / False. When you don't want to load the sql files into the database, you can set it to False.
 * `zabbix_proxy_dbencoding`: Default: `utf8`. The encoding for the MySQL database.
 * `zabbix_proxy_dbcollation`: Default: `utf8_bin`. The collation for the MySQL database.zabbix_proxy_
+* `zabbix_server_allowunsupporteddbversions`: Allow proxy to work with unsupported database versions.
 
 ### TLS Specific configuration
 
@@ -298,14 +330,15 @@ These variables need to be overridden when you want to make use of the zabbix-ap
 
 When `zabbix_api_create_proxy` is set to `True`, it will install on the host executing the Ansible playbook the `zabbix-api` python module.
 
-* `zabbix_url`: The url on which the Zabbix webpage is available. Example: http://zabbix.example.com
+* `zabbix_api_server_url`: The url on which the Zabbix webpage is available. Example: http://zabbix.example.com
 * `zabbix_api_http_user`: The http user to access zabbix url with Basic Auth
 * `zabbix_api_http_password`: The http password to access zabbix url with Basic Auth
-* `zabbix_api_create_proxy`: When you want to enable the Zabbix API to create/delete the proxy. This has to be set to `True` if you want to make use of `zabbix_create_proxy`. Default: `False`
-* `zabbix_api_user`: Username of user which has API access.
-* `zabbix_api_pass`: Password for the user which has API access.
-* `zabbix_create_proxy`: present (Default) if the proxy needs to be created or absent if you want to delete it. This only works when `zabbix_api_create_proxy` is set to `True`.
+* `zabbix_api_create_proxy`: When you want to enable the Zabbix API to create/delete the proxy. This has to be set to `True` if you want to make use of `zabbix_proxy_state`. Default: `False`
+* `zabbix_api_login_user`: Username of user which has API access.
+* `zabbix_api_login_pass`: Password for the user which has API access.
+* `zabbix_proxy_state`: present (Default) if the proxy needs to be created or absent if you want to delete it. This only works when `zabbix_api_create_proxy` is set to `True`.
 * `zabbix_proxy_status`: active (Default) if the proxy needs to be active or passive.
+* `zabbix_api_timeout`: timeout for API calls (default to 30 seconds)
 
 # Example Playbook
 
@@ -315,7 +348,7 @@ Including an example of how to use your role (for instance, with variables passe
   - hosts: zabbix-proxy
     roles:
       - role: community.zabbix.zabbix_proxy
-        zabbix_server_host: 192.168.1.1
+        zabbix_proxy_server: 192.168.1.1
         zabbix_proxy_database: mysql
         zabbix_proxy_database_long: mysql
 ```

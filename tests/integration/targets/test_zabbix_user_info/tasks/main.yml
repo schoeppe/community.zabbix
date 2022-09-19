@@ -1,22 +1,22 @@
 ---
 # New user create test from here
-- when: zabbix_version is version('5.2', '<')
+- when: zabbix_version is version('5.4', '<')
   block:
     - name: test - Create a new Zabbix user
       zabbix_user:
-        server_url: "{{ zabbix_server_url }}"
-        login_user: "{{ zabbix_login_user }}"
-        login_password: "{{ zabbix_login_password }}"
+        server_url: "{{ zabbix_api_server_url }}"
+        login_user: "{{ zabbix_api_login_user }}"
+        login_password: "{{ zabbix_api_login_pass }}"
         alias: example
         name: user name
         surname: user surname
         usrgrps:
           - Guests
           - Disabled
-        passwd: password
-        lang: en_GB
+        passwd: G$jd_79!jw
+        lang: en_US
         theme: blue-theme
-        autologin: no
+        autologin: false
         autologout: '0'
         refresh: '30'
         rows_per_page: '200'
@@ -26,17 +26,17 @@
             sendto: example@example.com
             period: 1-7,00:00-24:00
             severity:
-              not_classified: no
-              information: yes
-              warning: yes
-              average: yes
-              high: yes
-              disaster: yes
-            active: no
+              not_classified: false
+              information: true
+              warning: true
+              average: true
+              high: true
+              disaster: true
+            active: false
         type: Zabbix super admin
         state: present
       register: create_zabbix_user_result
-    
+
     - assert:
         that:
           - create_zabbix_user_result.changed is sameas true
@@ -75,23 +75,23 @@
           - get_user_info_result[user_info_key].usrgrps.1.users_status is defined
           - get_user_info_result[user_info_key].usrgrps.1.usrgrpid is defined
 
-- when: zabbix_version is version('5.2', '>=')
+- when: zabbix_version is version('5.4', '>=')
   block:
     - name: test - Create a new Zabbix user
       zabbix_user:
-        server_url: "{{ zabbix_server_url }}"
-        login_user: "{{ zabbix_login_user }}"
-        login_password: "{{ zabbix_login_password }}"
+        server_url: "{{ zabbix_api_server_url }}"
+        login_user: "{{ zabbix_api_login_user }}"
+        login_password: "{{ zabbix_api_login_pass }}"
         alias: example
         name: user name
         surname: user surname
         usrgrps:
           - Guests
           - Disabled
-        passwd: password
-        lang: en_GB
+        passwd: G$jd_79!jw
+        lang: en_US
         theme: blue-theme
-        autologin: no
+        autologin: false
         autologout: '0'
         refresh: '30'
         rows_per_page: '200'
@@ -101,23 +101,23 @@
             sendto: example@example.com
             period: 1-7,00:00-24:00
             severity:
-              not_classified: no
-              information: yes
-              warning: yes
-              average: yes
-              high: yes
-              disaster: yes
-            active: no
+              not_classified: false
+              information: true
+              warning: true
+              average: true
+              high: true
+              disaster: true
+            active: false
         role_name: Super admin role
         timezone: Asia/Tokyo
         state: present
       register: create_zabbix_user_result
-    
+
     - assert:
         that:
           - create_zabbix_user_result.changed is sameas true
 
-    - name: test - Set definition_of_results variable of Zabbix 5.2 and higher
+    - name: test - Set definition_of_results variable of Zabbix 5.4 and higher
       set_fact:
         definition_of_results:
           - get_user_info_result[user_info_key].alias == "example"
@@ -154,9 +154,9 @@
 
 - name: "test - Get a zabbix user information"
   zabbix_user_info:
-    server_url: "{{ zabbix_server_url }}"
-    login_user: "{{ zabbix_login_user }}"
-    login_password: "{{ zabbix_login_password }}"
+    server_url: "{{ zabbix_api_server_url }}"
+    login_user: "{{ zabbix_api_login_user }}"
+    login_password: "{{ zabbix_api_login_pass }}"
     alias: example
   register: get_user_info_result
 
@@ -173,14 +173,14 @@
 
 - name: test - Create a new Zabbix user
   zabbix_user:
-    server_url: "{{ zabbix_server_url }}"
-    login_user: "{{ zabbix_login_user }}"
-    login_password: "{{ zabbix_login_password }}"
+    server_url: "{{ zabbix_api_server_url }}"
+    login_user: "{{ zabbix_api_login_user }}"
+    login_password: "{{ zabbix_api_login_pass }}"
     alias: example2
     usrgrps:
       - Guests
       - Disabled
-    passwd: password
+    passwd: G$jd_79!jw
     state: present
   register: create_zabbix_user_result2
 
@@ -190,9 +190,9 @@
 
 - name: "test - Get a zabbix user information"
   zabbix_user_info:
-    server_url: "{{ zabbix_server_url }}"
-    login_user: "{{ zabbix_login_user }}"
-    login_password: "{{ zabbix_login_password }}"
+    server_url: "{{ zabbix_api_server_url }}"
+    login_user: "{{ zabbix_api_login_user }}"
+    login_password: "{{ zabbix_api_login_pass }}"
     alias: example2
   register: get_user_info_result2
 
@@ -206,3 +206,9 @@
 - assert:
     that:
       - get_user_info_result2[user_info_key].alias == "example2"
+  when: zabbix_version is version('5.4', '<')
+
+- assert:
+    that:
+      - get_user_info_result2[user_info_key].username == "example2"
+  when: zabbix_version is version('5.4', '>=')

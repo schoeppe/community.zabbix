@@ -1,17 +1,18 @@
+---
 name: "community.zabbix.zabbix_proxy"
 on:
   push:
     paths:
-      - 'roles/zabbix_proxy/**'
-      - 'molecule/zabbix_proxy/**'
-      - 'molecule/requirements.txt'
-      - '.github/workflows/proxy.yml'
+      - "roles/zabbix_proxy/**"
+      - "molecule/zabbix_proxy/**"
+      - "molecule/requirements.txt"
+      - ".github/workflows/proxy.yml"
   pull_request:
     paths:
-      - 'roles/zabbix_proxy/**'
-      - 'molecule/zabbix_proxy/**'
-      - 'molecule/requirements.txt'
-      - '.github/workflows/proxy.yml'
+      - "roles/zabbix_proxy/**"
+      - "molecule/zabbix_proxy/**"
+      - "molecule/requirements.txt"
+      - ".github/workflows/proxy.yml"
 jobs:
   molecule:
     runs-on: ubuntu-18.04
@@ -20,13 +21,13 @@ jobs:
       matrix:
         molecule_distro:
           - container: mysql-centos
-            image: geerlingguy/docker-centos8-ansible:latest
+            image: geerlingguy/docker-rockylinux8-ansible:latest
             group: mysql
           - container: pgsql-centos
-            image: geerlingguy/docker-centos8-ansible:latest
+            image: geerlingguy/docker-rockylinux8-ansible:latest
             group: postgresql
           - container: sqlite-centos
-            image: geerlingguy/docker-centos8-ansible:latest
+            image: geerlingguy/docker-rockylinux8-ansible:latest
             group: sqlite3
           - container: mysql-ubuntu
             image: geerlingguy/docker-ubuntu2004-ansible
@@ -40,13 +41,13 @@ jobs:
             group: sqlite3
             command: /sbin/init
           - container: mysql-debian
-            image: geerlingguy/docker-debian10-ansible
+            image: geerlingguy/docker-debian11-ansible
             group: mysql
           - container: pgsql-debian
-            image: geerlingguy/docker-debian10-ansible
+            image: geerlingguy/docker-debian11-ansible
             group: postgresql
           - container: sqlite-debian
-            image: geerlingguy/docker-debian10-ansible
+            image: geerlingguy/docker-debian11-ansible
             group: sqlite3
         collection_role:
           - zabbix_proxy

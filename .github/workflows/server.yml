@@ -1,17 +1,18 @@
+---
 name: "community.zabbix.zabbix_server"
 on:
   push:
     paths:
-      - 'roles/zabbix_server/**'
-      - 'molecule/zabbix_server/**'
-      - 'molecule/requirements.txt'
-      - '.github/workflows/server.yml'
+      - "roles/zabbix_server/**"
+      - "molecule/zabbix_server/**"
+      - "molecule/requirements.txt"
+      - ".github/workflows/server.yml"
   pull_request:
     paths:
-      - 'roles/zabbix_server/**'
-      - 'molecule/zabbix_server/**'
-      - 'molecule/requirements.txt'
-      - '.github/workflows/server.yml'
+      - "roles/zabbix_server/**"
+      - "molecule/zabbix_server/**"
+      - "molecule/requirements.txt"
+      - ".github/workflows/server.yml"
 jobs:
   molecule:
     runs-on: ubuntu-18.04
@@ -20,10 +21,10 @@ jobs:
       matrix:
         molecule_distro:
           - container: mysql-centos
-            image: geerlingguy/docker-centos8-ansible:latest
+            image: geerlingguy/docker-rockylinux8-ansible:latest
             group: mysql
           - container: pgsql-centos
-            image: geerlingguy/docker-centos8-ansible:latest
+            image: geerlingguy/docker-rockylinux8-ansible:latest
             group: postgresql
           - container: mysql-ubuntu
             image: geerlingguy/docker-ubuntu2004-ansible
@@ -33,10 +34,10 @@ jobs:
             group: postgresql
             command: /sbin/init
           - container: mysql-debian
-            image: geerlingguy/docker-debian10-ansible
+            image: geerlingguy/docker-debian11-ansible
             group: mysql
           - container: pgsql-debian
-            image: geerlingguy/docker-debian10-ansible
+            image: geerlingguy/docker-debian11-ansible
             group: postgresql
         collection_role:
           - zabbix_server

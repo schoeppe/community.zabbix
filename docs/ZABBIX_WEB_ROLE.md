@@ -41,28 +41,37 @@ This role will work on the following operating systems:
 So, you'll need one of those operating systems.. :-)
 Please send Pull Requests or suggestions when you want to use this role for other Operating systems.
 
+## Ansible 2.10 and higher
+
+With the release of Ansible 2.10, modules have been moved into collections.  With the exception of ansible.builtin modules, this means additonal collections must be installed in order to use modules such as seboolean (now ansible.posix.seboolean).  The following collections are now required: `ansible.posix`.  The `community.general` collection is required when defining the `zabbix_web_htpasswd` variable (see variable section below).  Installing the collections:
+
+```sh
+ansible-galaxy collection install ansible.posix
+ansible-galaxy collection install community.general
+```
+
 ## Zabbix Versions
 
 See the following list of supported Operating Systems with the Zabbix releases.
 
-| Zabbix              | 5.2 | 5.0 | 4.4 | 4.0 (LTS) | 3.0 (LTS) |
-|---------------------|-----|-----|-----|-----------|-----------|
-| Red Hat Fam 8       |  V  |  V  | V   |           |           |
-| Red Hat Fam 7       |  V  |  V  | V   | V         | V         |
-| Red Hat Fam 6       |  V  |  V  |     |           | V         |
-| Red Hat Fam 5       |  V  |  V  |     |           | V         |
-| Fedora              |     |     | V   | V         |           |
-| Ubuntu 20.04 focal  |  V  |  V  |     |           |           |
-| Ubuntu 19.10 eoan   |     |     |     |           |           |
-| Ubuntu 18.04 bionic |  V  |  V  | V   | V         |           |
-| Ubuntu 16.04 xenial |  V  |  V  | V   | V         |           |
-| Ubuntu 14.04 trusty |  V  |  V  | V   | V         | V         |
-| Debian 10 buster    |  V  |  V  | V   |           |           |
-| Debian 9 stretch    |  V  |  V  | V   | V         |           |
-| Debian 8 jessie     |  V  |  V  | V   | V         | V         |
-| Debian 7 wheezy     |     |     |     | V         | V         |
-| macOS 10.15         |     |     | V   | V         |           |
-| macOS 10.14         |     |     | V   | V         |           |
+| Zabbix              | 6.2 | 6.0 | 5.4 | 5.2 | 5.0  (LTS) | 4.4 | 4.0 (LTS) | 3.0 (LTS) |
+|---------------------|-----|-----|-----|-----|------------|-----|-----------|-----------|
+| Red Hat Fam 8       |  V  |  V  |  V  |  V  |  V         | V   |           |           |
+| Red Hat Fam 7       |     |  V  |  V  |  V  |  V         | V   | V         | V         |
+| Red Hat Fam 6       |     |     |     |  V  |  V         |     |           | V         |
+| Red Hat Fam 5       |     |     |     |  V  |  V         |     |           | V         |
+| Fedora              |     |     |     |     |            | V   | V         |           |
+| Ubuntu 22.04 jammy  |  V  |  V  |     |     |            |     |           |           |
+| Ubuntu 20.04 focal  |  V  |  V  |  V  |  V  |  V         | V   |           |           |
+| Ubuntu 18.04 bionic |     |  V  |  V  |  V  |  V         | V   | V         |           |
+| Ubuntu 16.04 xenial |     |     |     |  V  |  V         | V   | V         |           |
+| Ubuntu 14.04 trusty |     |     |     |  V  |  V         | V   | V         | V         |
+| Debian 10 buster    |     |  V  |  V  |  V  |  V         | V   |           |           |
+| Debian 9 stretch    |     |  V  |  V  |  V  |  V         | V   | V         |           |
+| Debian 8 jessie     |     |     |     |  V  |  V         | V   | V         | V         |
+| Debian 7 wheezy     |     |     |     |     |            |     | V         | V         |
+| macOS 10.15         |     |     |     |     |            | V   | V         |           |
+| macOS 10.14         |     |     |     |     |            | V   | V         |           |
 
 # Installation
 
@@ -83,7 +92,8 @@ The following is an overview of all available configuration defaults for this ro
 
 ### Overall Zabbix
 
-* `zabbix_web_version`: This is the version of zabbix. Default: 5.2. Can be overridden to 5.0, 4.4, 4.0, 3.4, 3.2, 3.0, 2.4, or 2.2. Previously the variable `zabbix_version` was used directly but it could cause [some inconvenience](https://github.com/dj-wasabi/ansible-zabbix-agent/pull/303). That variable is maintained by retrocompativility.
+* `zabbix_web_version`: This is the version of zabbix. Default: The highest supported version for the operating system. Can be overridden to 6.2, 6.0, 5.4, 5.2, 5.0, 4.4, 4.0, 3.4, 3.2, 3.0, 2.4, or 2.2. Previously the variable `zabbix_version` was used directly but it could cause [some inconvenience](https://github.com/dj-wasabi/ansible-zabbix-agent/pull/303). That variable is maintained by retrocompativility.
+* `zabbix_web_version_minor`: When you want to specify a minor version to be installed. RedHat only. Default set to: `*` (latest available)
 * `zabbix_repo`: Default: `zabbix`
   * `epel`: install agent from EPEL repo
   * `zabbix`: (default) install agent from Zabbix repo
@@ -101,7 +111,7 @@ The following is an overview of all available configuration defaults for this ro
 
 ### Zabbix Web specific
 
-* `zabbix_url`: This is the url on which the zabbix web interface is available. Default is zabbix.example.com, you should override it. For example, see "Example Playbook"
+* `zabbix_api_server_url`: This is the url on which the zabbix web interface is available. Default is zabbix.example.com, you should override it. For example, see "Example Playbook"
 * `zabbix_url_aliases`: A list with Aliases for the Apache Virtual Host configuration.
 * `zabbix_timezone`: Default: `Europe/Amsterdam`. This is the timezone. The Apache Virtual Host needs this parameter.
 * `zabbix_vhost`: Default: `true`. When you don't want to create an Apache Virtual Host configuration, you can set it to False.
@@ -112,6 +122,10 @@ The following is an overview of all available configuration defaults for this ro
 * `zabbix_web_htpasswd_file`: Default: `/etc/zabbix/web/htpasswd`. Allows the change the default path to the htpasswd file.
 * `zabbix_web_htpasswd_users`: (Optional) Dictionary for creating users via `htpasswd_user` and passphrases via `htpasswd_pass` in htpasswd file.
 * `zabbix_web_allowlist_ips`: (Optional) Allow web access at webserver level to a list of defined IPs or CIDR.
+* `zabbix_web_connect_ha_backend`: (Optional) Default: `false`. When set to `true` values for Zabbix server will not be written and frontend gets values from database to connect to active cluster node. Set `true` when operating Zabbix servers in a cluste (only >=6.0).
+* `zabbix_saml_idp_crt`: (Optional) The path to the certificate of the Identity Provider used for SAML authentication
+* `zabbix_saml_sp_crt`: (Optional) The path to the public certificate of Zabbix as Service Provider
+* `zabbix_saml_sp_key`: (Optional) The path to the private certificate of Zabbix as Service Provider
 
 #### Apache configuration
 
@@ -218,12 +232,13 @@ When there is one host running both Zabbix Server and the Zabbix Web (Running My
   become: yes
   roles:
     - role: geerlingguy.apache
+    - role: geerlingguy.php
     - role: community.zabbix.zabbix_server
       zabbix_server_database: mysql
       zabbix_server_database_long: mysql
       zabbix_server_dbport: 3306
     - role: community.zabbix.zabbix_web
-      zabbix_url: zabbix.mydomain.com
+      zabbix_api_server_url: zabbix.mydomain.com
       zabbix_server_database: mysql
       zabbix_server_database_long: mysql
       zabbix_server_dbport: 3306
@@ -246,8 +261,9 @@ This is a two host setup. On one host (Named: "zabbix-server") the Zabbix Server
   become: yes
   roles:
     - role: geerlingguy.apache
+    - role: geerlingguy.php
     - role: community.zabbix.zabbix_web
-      zabbix_url: zabbix.mydomain.com
+      zabbix_api_server_url: zabbix.mydomain.com
       zabbix_server_hostname: zabbix-server
       zabbix_server_database: mysql
       zabbix_server_database_long: mysql
@@ -274,7 +290,7 @@ zabbix.conf.php, for example to add LDAP CA certificates. To do this add a `zabb
         - php-acpu
     - role: geerlingguy.apache-php-fpm
     - role: community.zabbix.zabbix_web
-      zabbix_url: zabbix.mydomain.com
+      zabbix_api_server_url: zabbix.mydomain.com
       zabbix_server_hostname: zabbix-server
       zabbix_server_database: mysql
       zabbix_server_database_long: mysql

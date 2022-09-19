@@ -1,3 +1,4 @@
+---
 name: plugins-integration
 on:
   push:
@@ -19,21 +20,34 @@ jobs:
       fail-fast: false
       matrix:
         zabbix_container:
-          - version: "3.0"
           - version: "4.0"
-          - version: "4.4"
           - version: "5.0"
-          - version: "5.2"
+          # - version: "5.4" # only activate after basic compatibility
+          - version: "6.0"
+          - version: "6.2"
         ansible:
-          # - stable-2.9 # Only if your collection supports Ansible 2.9
           - stable-2.10
           - stable-2.11
+          - stable-2.12
+          - stable-2.13
           - devel
         python:
-          - 2.7
-          - 3.7
-          - 3.8
+          - 2.7 # required by Ansible see https://github.com/ansible-collections/overview/blob/main/collection_requirements.rst#python-compatibility
+          - 3.6 # required by Ansible see https://github.com/ansible-collections/overview/blob/main/collection_requirements.rst#python-compatibility
           - 3.9
+        exclude:
+          - ansible: devel
+            python: 2.7
+          - ansible: devel
+            python: 3.6
+          - ansible: stable-2.12
+            python: 2.7
+          - ansible: stable-2.12
+            python: 3.6
+          - ansible: stable-2.13
+            python: 2.7
+          - ansible: stable-2.13
+            python: 3.6
 
     steps:
       - name: Check out code
@@ -41,7 +55,7 @@ jobs:
         with:
           path: ansible_collections/community/zabbix
 
-      - name: Set up Python ${{ matrix.ansible }}
+      - name: Set up Python ${{ matrix.python }}
         uses: actions/setup-python@v2
         with:
           python-version: ${{ matrix.python }}

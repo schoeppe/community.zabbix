@@ -77,12 +77,12 @@ options:
             - Works only with Zabbix versions 3.4 or newer.
         default: 3
     attempt_interval:
-        type: 'int'
+        type: 'str'
         description:
             - The interval between retry attempts.
-            - Possible range is 0-60.
+            - Possible range is 0-60s in Zabbix < 5.0 or 0-1h in Zabbix >= 5.0.
             - Works only with Zabbix versions 3.4 or newer.
-        default: 10
+        default: 10s
     script_name:
         type: 'str'
         description:
@@ -374,10 +374,11 @@ EXAMPLES = r'''
 '''
 
 
-from distutils.version import LooseVersion
 from ansible.module_utils.basic import AnsibleModule
 
 from ansible_collections.community.zabbix.plugins.module_utils.base import ZabbixBase
+from ansible_collections.community.zabbix.plugins.module_utils.version import LooseVersion
+
 import ansible_collections.community.zabbix.plugins.module_utils.helpers as zabbix_utils
 
 
@@ -497,6 +498,10 @@ class MediaTypeModule(ZabbixBase):
                 username=self._module.params['username'],
                 passwd=self._module.params['password']
             ))
+            if LooseVersion(self._zbx_api_version) >= LooseVersion('6.0'):
+                if parameters['smtp_authentication'] == '0':
+                    parameters.pop('username')
+                    parameters.pop('passwd')
             return parameters
 
         elif self._module.params['type'] == 'script':
@@ -636,7 +641,7 @@ def main():
         status=dict(type='str', default='enabled', choices=['enabled', 'disabled'], required=False),
         max_sessions=dict(type='int', default=1, required=False),
         max_attempts=dict(type='int', default=3, required=False),
-        attempt_interval=dict(type='int', default=10, required=False),
+        attempt_interval=dict(type='str', default='10s', required=False),
         # Script
         script_name=dict(type='str', required=False),
         script_params=dict(type='list', required=False),
