@@ -7,8 +7,6 @@
 from __future__ import absolute_import, division, print_function
 __metaclass__ = type
 
-from ansible.module_utils.basic import env_fallback
-
 
 def zabbix_common_argument_spec():
     """
@@ -16,22 +14,6 @@ def zabbix_common_argument_spec():
     The options are commonly used by most of Zabbix modules.
     """
     return dict(
-        server_url=dict(
-            type='str',
-            required=True,
-            aliases=['url'],
-            fallback=(env_fallback, ['ZABBIX_SERVER'])
-        ),
-        login_user=dict(
-            type='str', required=True,
-            fallback=(env_fallback, ['ZABBIX_USERNAME'])
-        ),
-        login_password=dict(
-            type='str',
-            required=True,
-            no_log=True,
-            fallback=(env_fallback, ['ZABBIX_PASSWORD'])
-        ),
         http_login_user=dict(
             type='str',
             required=False,
@@ -42,17 +24,7 @@ def zabbix_common_argument_spec():
             required=False,
             default=None,
             no_log=True
-        ),
-        timeout=dict(
-            type='int',
-            default=10
-        ),
-        validate_certs=dict(
-            type='bool',
-            required=False,
-            default=True,
-            fallback=(env_fallback, ['ZABBIX_VALIDATE_CERTS'])
-        ),
+        )
     )
 
 

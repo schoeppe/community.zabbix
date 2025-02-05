@@ -7,56 +7,51 @@ on:
       - "molecule/zabbix_agent/**"
       - "molecule/requirements.txt"
       - ".github/workflows/agent.yml"
+      - "roles/zabbix_repo/**"
+      - "molecule/zabbix_repo/**"
+      - ".github/workflows/repo.yml"
   pull_request:
     paths:
       - "roles/zabbix_agent/**"
       - "molecule/zabbix_agent/**"
       - "molecule/requirements.txt"
       - ".github/workflows/agent.yml"
+      - "roles/zabbix_repo/**"
+      - "molecule/zabbix_repo/**"
+      - ".github/workflows/repo.yml"
 jobs:
   molecule:
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-20.04
     strategy:
       fail-fast: false
       matrix:
-        molecule_distro:
-          - container: centos8
-            image: geerlingguy/docker-rockylinux8-ansible:latest
-          - container: centos7
-            image: geerlingguy/docker-centos7-ansible:latest
-          - container: fedora32
-            image: geerlingguy/docker-fedora32-ansible:latest
-          - container: ubuntu2004
-            image: geerlingguy/docker-ubuntu2004-ansible
-          - container: pgsql-ubuntu1804
-            image: geerlingguy/docker-ubuntu1804-ansible
-          - container: debian11
-            image: geerlingguy/docker-debian11-ansible
-          - container: debian10
-            image: geerlingguy/docker-debian10-ansible
-          - container: debian9
-            image: geerlingguy/docker-debian9-ansible
+        container:
+          - rockylinux9
+          - rockylinux8
+          - ubuntu2404
+          - ubuntu2204
+          - ubuntu2004
+          - debian12
+          - debian11
+          - opensuseleap15
+        version:
+          - v70
+          - v64
+          - v60
         scenario_name:
           - default
           - autopsk
           - agent2
           - agent2autopsk
-        exclude: # zabbix-agent2 is not supported on debian8
-          - molecule_distro:
-              container: debian8
-            scenario_name: agent2
-          - molecule_distro:
-              container: debian8
-            scenario_name: agent2autopsk
 
     steps:
       - name: Check out code
-        uses: actions/checkout@v1
+        uses: actions/checkout@v4
 
-      - name: Set up Python 3.7
-        uses: actions/setup-python@v1
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
         with:
-          python-version: 3.7
+          python-version: 3.11
 
       - name: Install dependencies
         run: |
@@ -65,16 +60,25 @@ jobs:
 
       - name: Build the collection
         run: |
+          # Pin versions to speed up CI
+          sed -i 's/ansible\.windows:\s*"\*"/ansible.windows: "2.3.0"/' galaxy.yml
+          sed -i 's/ansible\.netcommon:\s*"\*"/ansible.netcommon: "6.1.1"/' galaxy.yml
+          sed -i 's/ansible\.posix:\s*"\*"/ansible.posix: "1.5.4"/' galaxy.yml
+          sed -i 's/community\.general:\s*"\*"/community.general: "8.6.0"/' galaxy.yml
+          sed -i 's/community\.mysql:\s*"\*"/community.mysql: "3.9.0"/' galaxy.yml
+          sed -i 's/community\.postgresql:\s*"\*"/community.postgresql: "3.4.0"/' galaxy.yml
+
           collection_file=$( basename $(ansible-galaxy collection build -f | awk -F" " '{print $NF}'))
           echo "COLLECTION_FILE=$collection_file" >> $GITHUB_ENV
 
       - name: Install the collection
-        run: ansible-galaxy collection install $COLLECTION_FILE
+        run: ansible-galaxy collection install -vvvv $COLLECTION_FILE
 
       - name: Run role tests
         working-directory: molecule/zabbix_agent_tests
         run: >-
-          MY_MOLECULE_CONTAINER=${{ matrix.molecule_distro.container }}
-          MY_MOLECULE_IMAGE=${{ matrix.molecule_distro.image }}
-          MY_MOLECULE_DOCKER_COMMAND=${{ matrix.molecule_distro.command }}
+          MY_MOLECULE_CONTAINER=${{ matrix.container }}
+          MY_MOLECULE_IMAGE=${{ matrix.container }}
+          MY_MOLECULE_VERSION=${{ matrix.version }}
+          MY_MOLECULE_DOCKER_COMMAND=${{ matrix.command }}
           molecule -c common/molecule.yml test -s ${{ matrix.scenario_name }}

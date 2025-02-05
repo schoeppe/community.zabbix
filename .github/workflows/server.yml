@@ -7,48 +7,55 @@ on:
       - "molecule/zabbix_server/**"
       - "molecule/requirements.txt"
       - ".github/workflows/server.yml"
+      - "roles/zabbix_repo/**"
+      - "molecule/zabbix_repo/**"
+      - ".github/workflows/repo.yml"
   pull_request:
     paths:
       - "roles/zabbix_server/**"
       - "molecule/zabbix_server/**"
       - "molecule/requirements.txt"
       - ".github/workflows/server.yml"
+      - "roles/zabbix_repo/**"
+      - "molecule/zabbix_repo/**"
+      - ".github/workflows/repo.yml"
 jobs:
   molecule:
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-20.04
     strategy:
       fail-fast: false
       matrix:
-        molecule_distro:
-          - container: mysql-centos
-            image: geerlingguy/docker-rockylinux8-ansible:latest
-            group: mysql
-          - container: pgsql-centos
-            image: geerlingguy/docker-rockylinux8-ansible:latest
-            group: postgresql
-          - container: mysql-ubuntu
-            image: geerlingguy/docker-ubuntu2004-ansible
-            group: mysql
-          - container: pgsql-ubuntu
-            image: geerlingguy/docker-ubuntu2004-ansible
-            group: postgresql
-            command: /sbin/init
-          - container: mysql-debian
-            image: geerlingguy/docker-debian11-ansible
-            group: mysql
-          - container: pgsql-debian
-            image: geerlingguy/docker-debian11-ansible
-            group: postgresql
+        container:
+          - rockylinux9
+          - rockylinux8
+          - ubuntu2404
+          - ubuntu2204
+          - ubuntu2004
+          - debian12
+          - debian11
+          - opensuseleap15
         collection_role:
           - zabbix_server
+        database:
+          - mysql
+          - pgsql
+        version:
+          - v70
+          - v64
+          - v60
+        exclude:
+          - container: ubuntu2004
+            version: v70
+          - container: debian11
+            version: v70
     steps:
       - name: Check out code
-        uses: actions/checkout@v1
+        uses: actions/checkout@v4
 
-      - name: Set up Python 3.7
-        uses: actions/setup-python@v1
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
         with:
-          python-version: 3.7
+          python-version: 3.11
 
       - name: Install dependencies
         run: |
@@ -57,16 +64,25 @@ jobs:
 
       - name: Build the collection
         run: |
+          # Pin versions to speed up CI
+          sed -i 's/ansible\.windows:\s*"\*"/ansible.windows: "2.3.0"/' galaxy.yml
+          sed -i 's/ansible\.netcommon:\s*"\*"/ansible.netcommon: "6.1.1"/' galaxy.yml
+          sed -i 's/ansible\.posix:\s*"\*"/ansible.posix: "1.5.4"/' galaxy.yml
+          sed -i 's/community\.general:\s*"\*"/community.general: "8.6.0"/' galaxy.yml
+          sed -i 's/community\.mysql:\s*"\*"/community.mysql: "3.9.0"/' galaxy.yml
+          sed -i 's/community\.postgresql:\s*"\*"/community.postgresql: "3.4.0"/' galaxy.yml
+
           collection_file=$( basename $(ansible-galaxy collection build -f | awk -F" " '{print $NF}'))
           echo "COLLECTION_FILE=$collection_file" >> $GITHUB_ENV
 
       - name: Install the collection
-        run: ansible-galaxy collection install $COLLECTION_FILE
+        run: ansible-galaxy collection install -vvvv $COLLECTION_FILE
 
-      - name: Run role tests
+      - name: Run server role tests
         run: >-
-          MY_MOLECULE_CONTAINER=${{ matrix.molecule_distro.container }}
-          MY_MOLECULE_IMAGE=${{ matrix.molecule_distro.image }}
-          MY_MOLECULE_GROUP=${{ matrix.molecule_distro.group }}
-          MY_MOLECULE_DOCKER_COMMAND=${{ matrix.molecule_distro.command }}
+          MY_MOLECULE_CONTAINER=${{ matrix.container }}
+          MY_MOLECULE_IMAGE=${{ matrix.container }}
+          MY_MOLECULE_VERSION=${{ matrix.version }}
+          MY_MOLECULE_DATABASE=${{ matrix.database }}
+          MY_MOLECULE_DOCKER_COMMAND=${{ matrix.command }}
           molecule test -s ${{ matrix.collection_role }}

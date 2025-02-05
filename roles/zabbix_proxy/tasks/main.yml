@@ -1,78 +1,108 @@
 ---
 # tasks file for zabbix_proxy
 - name: "Include OS-specific variables"
-  include_vars: "{{ ansible_os_family }}.yml"
+  ansible.builtin.include_vars: "{{ ansible_os_family }}.yml"
+  tags:
+    - always
 
 - name: Determine Latest Supported Zabbix Version
-  set_fact:
-    zabbix_proxy_version: "{{ zabbix_valid_proxy_versions[ansible_distribution_major_version][0] | default(6.0) }}"
-  when: zabbix_proxy_version is not defined
+  ansible.builtin.set_fact:
+    zabbix_proxy_version: "{{ zabbix_valid_proxy_versions[ansible_distribution_major_version][0] | default(6.4) }}"
+  when: zabbix_proxy_version is not defined or zabbix_proxy_version is none
+  tags:
+    - always
 
-- name: "Replace Sangoma with RedHat task"
-  set_fact:
-    ansible_os_family: "RedHat"
-  when:
-    - ansible_os_family == 'Sangoma'
+- name: Set More Variables
+  ansible.builtin.set_fact:
+    zabbix_proxy_db_long: "{{ 'postgresql' if zabbix_proxy_database == 'pgsql' else zabbix_proxy_database }}"
+    zabbix_proxy_fpinglocation: "{{ zabbix_proxy_fpinglocation if zabbix_proxy_fpinglocation is defined else _zabbix_proxy_fpinglocation}}"
+    zabbix_proxy_fping6location: "{{ zabbix_proxy_fping6location if zabbix_proxy_fping6location is defined else _zabbix_proxy_fping6location}}"
+  tags:
+    - always
+
+- name: Check that version is supported
+  when: enable_version_check | default(true) | bool
+  ansible.builtin.assert:
+    that:
+      - "{{ zabbix_proxy_version|float in zabbix_valid_proxy_versions[ ansible_facts['distribution_major_version'] ] }}"
+    fail_msg: Zabbix version {{ zabbix_proxy_version }} is not supported on {{ ansible_facts['distribution'] }} {{ ansible_facts['distribution_major_version'] }}
+  tags:
+    - always
+
+- name: Setting Zabbix API Server Port
+  ansible.builtin.set_fact:
+    zabbix_api_server_port: "{{ '443' if zabbix_api_use_ssl|bool else '80' }}"
+  when: zabbix_api_server_port is undefined
 
 - name: "Set default ip address for zabbix_proxy_ip"
-  set_fact:
+  ansible.builtin.set_fact:
     zabbix_proxy_ip: "{{ hostvars[inventory_hostname]['ansible_default_ipv4'].address }}"
   when:
     - zabbix_proxy_ip is not defined
     - "'ansible_default_ipv4' in hostvars[inventory_hostname]"
+  tags:
+    - install
+    - config
+    - api
 
-- name: "Set OS dependent variables"
-  include_vars: "{{ item }}"
-  with_first_found:
-    - "../vars/{{ ansible_distribution }}.yml"
-    - "../vars/main.yml"
+- name: Install Repository
+  ansible.builtin.include_role:
+    name: community.zabbix.zabbix_repo
+  vars:
+    zabbix_repo_apt_priority: "{{ zabbix_proxy_apt_priority | default (omit) }}"
+    zabbix_repo_version: "{{ zabbix_proxy_version }}"
+    zabbix_repo_package: "zabbix-proxy-{{ zabbix_proxy_database }}"
+  when: zabbix_manage_repo | default(true)
 
-- name: "Install the correct repository"
-  include: "RedHat.yml"
-  when:
-    - ansible_os_family == "RedHat"
+- name: "Configure SELinux when enabled"
+  ansible.builtin.include_tasks: selinux.yml
+  when: ansible_facts.selinux.status | default('disabled') == 'enabled'
 
-- name: "Install the correct repository"
-  include: "Debian.yml"
-  when:
-    - ansible_os_family == "Debian"
-
-- name: "Installing the database"
-  include: "{{ zabbix_proxy_database_long }}.yml"
-
-- name: "Create include dir zabbix-proxy"
-  file:
-    path: "{{ zabbix_proxy_include }}"
-    owner: zabbix
-    group: zabbix
-    mode: "{{ zabbix_proxy_include_mode }}"
-    state: directory
+- name: "Install zabbix-proxy packages"
+  ansible.builtin.package:
+    name: "{{ _zabbix_proxy_packages }}"
+    state: "{{ zabbix_proxy_package_state }}"
+    update_cache: true
+    disablerepo: "{{ zabbix_proxy_disable_repo | default(_zabbix_proxy_disable_repo | default(omit)) }}"
+  environment:
+    http_proxy: "{{ zabbix_http_proxy | default(None) | default(omit) }}"
+    https_proxy: "{{ zabbix_https_proxy | default(None) | default(omit) }}"
+  register: _zabbix_proxy_package_installed
+  until: _zabbix_proxy_package_installed is succeeded
   become: true
+  tags:
+    - install
 
-- name: "Create module dir zabbix-proxy"
-  file:
-    path: "{{ zabbix_proxy_loadmodulepath }}"
-    owner: zabbix
-    group: zabbix
-    state: directory
-    mode: "0755"
-  become: true
+- name: "Initialize the database"
+  ansible.builtin.include_tasks: "initialize-{{ zabbix_proxy_database }}.yml"
 
-- name: "Create directory for PSK file if not exist."
-  file:
-    path: "{{ zabbix_proxy_tlspskfile | dirname }}"
-    mode: 0755
+- name: "Create directories"
+  ansible.builtin.file:
     state: directory
+    path: "{{ item.path }}"
+    owner: "{{ zabbix_os_user }}"
+    group: "{{ zabbix_os_user }}"
+    mode: "{{ item.mode | default('0755') }}"
   become: true
-  when:
-    - zabbix_proxy_tlspskfile is defined
+  loop:
+    - path: "{{ zabbix_proxy_include_dir }}"
+      mode: "{{ zabbix_proxy_include_mode }}"
+    - path: "{{ zabbix_proxy_loadmodulepath }}"
+    - required: "{{ zabbix_proxy_tlspskfile is defined }}"
+      path: "{{ zabbix_proxy_tlspskfile | default('/path/to/zabbix_proxy_tlspskfile/zabbix_proxy.psk') | dirname }}"
+  loop_control:
+    label: "{{ item.path }}"
+  when: item.required | default(true)
+  tags:
+    - install
+    - config
 
 - name: "Place TLS PSK File"
-  copy:
+  ansible.builtin.copy:
     dest: "{{ zabbix_proxy_tlspskfile }}"
     content: "{{ zabbix_proxy_tlspsk_secret }}"
-    owner: zabbix
-    group: zabbix
+    owner: "{{ zabbix_os_user }}"
+    group: "{{ zabbix_os_user }}"
     mode: 0400
   become: true
   when:
@@ -80,57 +110,31 @@
     - zabbix_proxy_tlspsk_secret is defined
   notify:
     - restart zabbix-proxy
-
-- name: "Allow zabbix-proxy to open connections (SELinux)"
-  ansible.posix.seboolean:
-    name: zabbix_can_network
-    persistent: true
-    state: true
-  become: true
-  when: ansible_selinux.status == "enabled"
-  tags: selinux
-
-- name: "Allow zabbix-proxy to connect to zabbix_proxy_preprocessing.sock (SELinux)"
-  ansible.posix.seboolean:
-    name: daemons_enable_cluster_mode
-    persistent: true
-    state: true
-  become: true
-  when: ansible_selinux.status == "enabled"
-  tags: selinux
+  tags:
+    - config
 
 - name: "Configure zabbix-proxy"
-  template:
+  ansible.builtin.template:
     src: zabbix_proxy.conf.j2
-    dest: /etc/zabbix/zabbix_proxy.conf
-    owner: zabbix
-    group: zabbix
+    dest: "{{ zabbix_proxy_config }}"
+    owner: "{{ zabbix_os_user }}"
+    group: "{{ zabbix_os_user }}"
     mode: "{{ zabbix_proxy_conf_mode }}"
   notify: restart zabbix-proxy
   become: true
-
-- name: "Installing the Zabbix-api package on localhost"
-  pip:
-    name: zabbix-api
-    state: present
-  register: zabbix_api_package_installed
-  until: zabbix_api_package_installed is succeeded
-  delegate_to: localhost
-  run_once: true
-  become: "{{ zabbix_proxy_become_on_localhost }}"
-  when:
-    - zabbix_install_pip_packages | bool
-    - zabbix_api_create_proxy | bool
   tags:
-    - api
+    - config
 
 - name: Ensure proxy definition is up-to-date (added/updated/removed)
-  zabbix_proxy:
-    server_url: "{{ zabbix_api_server_url }}"
-    http_login_user: "{{ zabbix_api_http_user | default(zabbix_http_user | default(omit)) }}"
-    http_login_password: "{{ zabbix_api_http_password | default(zabbix_http_password | default(omit)) }}"
-    login_user: "{{ zabbix_api_login_user }}"
-    login_password: "{{ zabbix_api_login_pass }}"
+  vars:
+    gather_facts: false
+    ansible_user: "{{ zabbix_api_login_user }}"
+    ansible_network_os: community.zabbix.zabbix
+    ansible_connection: httpapi
+    ansible_httpapi_use_ssl: "{{ zabbix_api_use_ssl }}"
+    http_login_user: "{{ zabbix_api_http_user | default(-42) }}"
+    http_login_password: "{{ zabbix_api_http_password | default(-42) }}"
+  community.zabbix.zabbix_proxy:
     state: "{{ zabbix_proxy_state }}"
     status: "{{ zabbix_proxy_status }}"
     proxy_name: "{{ zabbix_proxy_name }}"
@@ -139,21 +143,20 @@
     tls_psk: "{{ zabbix_proxy_tlspsk_secret | default(omit) }}"
     tls_psk_identity: "{{ zabbix_proxy_tlspskidentity | default(omit) }}"
     tls_subject: "{{ zabbix_proxy_tls_subject | default(omit) }}"
-    tls_accept: "{{ zabbix_proxy_tls_config[zabbix_proxy_tlsaccept if zabbix_proxy_tlsaccept else 'no_encryption'] }}"
-    tls_connect: "{{ zabbix_proxy_tls_config[zabbix_proxy_tlsconnect if zabbix_proxy_tlsconnect else 'no_encryption'] }}"
-    validate_certs: "{{ zabbix_api_validate_certs | default(omit) }}"
-    timeout: "{{ zabbix_api_timeout }}"
+    tls_connect: "{{ zabbix_proxy_tls_config[zabbix_proxy_tlsaccept | default('no_encryption')] }}"
+    tls_accept: "{{ zabbix_proxy_tls_config[zabbix_proxy_tlsconnect | default('no_encryption')] }}"
   when:
     - zabbix_api_create_proxy | bool
-  delegate_to: localhost
-  become: false
+  delegate_to: "{{ zabbix_api_server_host }}"
   tags:
     - api
 
 - name: "zabbix-proxy started"
-  service:
+  ansible.builtin.service:
     name: zabbix-proxy
     state: started
     enabled: true
   become: true
   when: zabbix_proxy_manage_service | bool
+  tags:
+    - service

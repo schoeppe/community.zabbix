@@ -21,7 +21,6 @@ author:
     - "Harrison Gu (@harrisongu)"
 requirements:
     - "python >= 2.6"
-    - "zabbix-api >= 0.5.4"
 options:
     state:
         description:
@@ -46,13 +45,30 @@ notes:
 '''
 
 EXAMPLES = r'''
+# If you want to use Username and Password to be authenticated by Zabbix Server
+- name: Set credentials to access Zabbix Server API
+  ansible.builtin.set_fact:
+    ansible_user: Admin
+    ansible_httpapi_pass: zabbix
+
+# If you want to use API token to be authenticated by Zabbix Server
+# https://www.zabbix.com/documentation/current/en/manual/web_interface/frontend_sections/administration/general#api-tokens
+- name: Set API token
+  ansible.builtin.set_fact:
+    ansible_zabbix_auth_key: 8ec0d52432c15c91fcafe9888500cf9a607f44091ab554dbee860f6b44fac895
+
 # Base create host groups example
 - name: Create host groups
-  local_action:
-    module: community.zabbix.zabbix_group
-    server_url: http://monitor.example.com
-    login_user: username
-    login_password: password
+  # set task level variables as we change ansible_connection plugin here
+  vars:
+    ansible_network_os: community.zabbix.zabbix
+    ansible_connection: httpapi
+    ansible_httpapi_port: 443
+    ansible_httpapi_use_ssl: true
+    ansible_httpapi_validate_certs: false
+    ansible_zabbix_url_path: 'zabbixeu'  # If Zabbix WebUI runs on non-default (zabbix) path ,e.g. http://<FQDN>/zabbixeu
+    ansible_host: zabbix-example-fqdn.org
+  community.zabbix.zabbix_group:
     state: present
     host_groups:
       - Example group1
@@ -60,11 +76,16 @@ EXAMPLES = r'''
 
 # Limit the Zabbix group creations to one host since Zabbix can return an error when doing concurrent updates
 - name: Create host groups
-  local_action:
-    module: community.zabbix.zabbix_group
-    server_url: http://monitor.example.com
-    login_user: username
-    login_password: password
+  # set task level variables as we change ansible_connection plugin here
+  vars:
+      ansible_network_os: community.zabbix.zabbix
+      ansible_connection: httpapi
+      ansible_httpapi_port: 443
+      ansible_httpapi_use_ssl: true
+      ansible_httpapi_validate_certs: false
+      ansible_zabbix_url_path: 'zabbixeu'  # If Zabbix WebUI runs on non-default (zabbix) path ,e.g. http://<FQDN>/zabbixeu
+      ansible_host: zabbix-example-fqdn.org
+  community.zabbix.zabbix_group:
     state: present
     host_groups:
       - Example group1
@@ -73,18 +94,7 @@ EXAMPLES = r'''
 '''
 
 
-import traceback
-
-try:
-    from zabbix_api import Already_Exists
-
-    HAS_ZABBIX_API = True
-    ZBX_IMP_ERR = Exception()
-except ImportError:
-    ZBX_IMP_ERR = traceback.format_exc()
-    HAS_ZABBIX_API = False
-
-from ansible.module_utils.basic import AnsibleModule, missing_required_lib
+from ansible.module_utils.basic import AnsibleModule
 
 from ansible_collections.community.zabbix.plugins.module_utils.base import ZabbixBase
 import ansible_collections.community.zabbix.plugins.module_utils.helpers as zabbix_utils
@@ -98,13 +108,10 @@ class HostGroup(ZabbixBase):
             for group_name in group_names:
                 result = self._zapi.hostgroup.get({'filter': {'name': group_name}})
                 if not result:
-                    try:
-                        if self._module.check_mode:
-                            self._module.exit_json(changed=True)
-                        self._zapi.hostgroup.create({'name': group_name})
-                        group_add_list.append(group_name)
-                    except Already_Exists:
-                        return group_add_list
+                    if self._module.check_mode:
+                        self._module.exit_json(changed=True)
+                    self._zapi.hostgroup.create({'name': group_name})
+                    group_add_list.append(group_name)
             return group_add_list
         except Exception as e:
             self._module.fail_json(msg="Failed to create host group(s): %s" % e)
@@ -132,16 +139,13 @@ class HostGroup(ZabbixBase):
 def main():
     argument_spec = zabbix_utils.zabbix_common_argument_spec()
     argument_spec.update(dict(
-        host_groups=dict(type='list', required=True, aliases=['host_group']),
+        host_groups=dict(type='list', required=True, aliases=['host_group'], elements='str'),
         state=dict(type='str', default="present", choices=['present', 'absent']),
     ))
     module = AnsibleModule(
         argument_spec=argument_spec,
         supports_check_mode=True
     )
-
-    if not HAS_ZABBIX_API:
-        module.fail_json(msg=missing_required_lib('zabbix-api', url='https://pypi.org/project/zabbix-api/'), exception=ZBX_IMP_ERR)
 
     host_groups = module.params['host_groups']
     state = module.params['state']
