@@ -165,6 +165,6 @@
     - nginx
 
 - name: "Configure SELinux when enabled"
-  include: selinux.yml
+  include_tasks: selinux.yml
   when:
     - zabbix_selinux | bool
